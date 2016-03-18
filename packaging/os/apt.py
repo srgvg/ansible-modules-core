@@ -570,10 +570,11 @@ def main():
             force = dict(default='no', type='bool'),
             upgrade = dict(choices=['no', 'yes', 'safe', 'full', 'dist']),
             dpkg_options = dict(default=DPKG_OPTIONS),
-            autoremove = dict(type='bool', default=False, aliases=['autoclean'])
+            autoremove = dict(type='bool', default=False, aliases=['autoclean']),
+            gather_facts = dict(type='bool', default=False)
         ),
-        mutually_exclusive = [['package', 'upgrade', 'deb']],
-        required_one_of = [['package', 'upgrade', 'update_cache', 'deb']],
+        mutually_exclusive = [['package', 'upgrade', 'deb', 'gather_facts']],
+        required_one_of = [['package', 'upgrade', 'update_cache', 'deb', 'gather_facts']],
         supports_check_mode = True
     )
 
@@ -660,6 +661,18 @@ def main():
         else:
             updated_cache = False
             updated_cache_time = 0
+
+        if p['gather_facts']:
+            facts = {'ansible_packages': {'installed': {}, 'upgradable': []}}
+            for mypkg in cache:
+                if cache[mypkg.name].is_installed:
+                    facts['ansible_packages']['installed'][mypkg.name] = mypkg.installed.version
+                    if cache[mypkg.name].is_upgradable:
+                        facts['ansible_packages']['upgradable'].append(mypkg.name)
+
+            retvals=dict()
+            retvals['ansible_facts'] = facts
+            module.exit_json(**retvals)
 
         force_yes = p['force']
 
